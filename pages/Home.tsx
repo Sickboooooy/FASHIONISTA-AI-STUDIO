@@ -15,20 +15,20 @@ interface Particle {
 }
 
 const COLORS = ['#fbbf24', '#fcd34d', '#f59e0b', '#d4a017', '#e7e5e4', '#a8956a'];
-const MAX_PARTICLES = 120;
+const MAX_PARTICLES = 150;
 
-function createParticle(x: number, y: number): Particle {
+function createParticle(x: number, y: number, scale = 1): Particle {
   return {
-    x: x + (Math.random() - 0.5) * 12,
-    y: y + (Math.random() - 0.5) * 12,
-    vx: (Math.random() - 0.5) * 1.8,
-    vy: -(Math.random() * 1.2 + 0.4),
+    x: x + (Math.random() - 0.5) * 14,
+    y: y + (Math.random() - 0.5) * 14,
+    vx: (Math.random() - 0.5) * 2.2,
+    vy: -(Math.random() * 1.8 + 0.6) * scale,
     opacity: Math.random() * 0.5 + 0.5,
-    decay: Math.random() * 0.018 + 0.008,
-    size: Math.random() * 5 + 2,
+    decay: Math.random() * 0.014 + 0.006,
+    size: (Math.random() * 5 + 3) * scale,
     color: COLORS[Math.floor(Math.random() * COLORS.length)],
     rotation: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.12,
+    rotSpeed: (Math.random() - 0.5) * 0.14,
     shape: (['star', 'diamond', 'dot'] as const)[Math.floor(Math.random() * 3)],
   };
 }
@@ -85,18 +85,37 @@ const ParticleTrail: React.FC = () => {
 
     const particles: Particle[] = [];
     let rafId = 0;
+    const isTouchDevice = 'ontouchstart' in window;
 
+    // Fixed canvas → viewport dimensions only
     const resize = () => {
       canvas.width = window.innerWidth;
-      canvas.height = document.documentElement.scrollHeight;
+      canvas.height = window.innerHeight;
     };
     resize();
 
+    const spawn = (x: number, y: number, count: number, scale = 1) => {
+      if (particles.length >= MAX_PARTICLES) particles.splice(0, count);
+      for (let i = 0; i < count; i++) particles.push(createParticle(x, y, scale));
+    };
+
     const onMouseMove = (e: MouseEvent) => {
-      if (particles.length >= MAX_PARTICLES) particles.splice(0, 3);
-      const count = Math.floor(Math.random() * 3) + 1;
-      for (let i = 0; i < count; i++) {
-        particles.push(createParticle(e.clientX, e.clientY + window.scrollY));
+      spawn(e.clientX, e.clientY, Math.floor(Math.random() * 3) + 1);
+    };
+
+    // Touch: más partículas, más grandes, en cada punto del dedo
+    const onTouchMove = (e: TouchEvent) => {
+      for (let t = 0; t < e.touches.length; t++) {
+        const touch = e.touches[t];
+        spawn(touch.clientX, touch.clientY, Math.floor(Math.random() * 5) + 4, 1.4);
+      }
+    };
+
+    // Burst al primer toque
+    const onTouchStart = (e: TouchEvent) => {
+      for (let t = 0; t < e.touches.length; t++) {
+        const touch = e.touches[t];
+        spawn(touch.clientX, touch.clientY, 10, 1.6);
       }
     };
 
@@ -106,8 +125,8 @@ const ParticleTrail: React.FC = () => {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.vy -= 0.025;      // upward drift
-        p.vx *= 0.98;       // gentle deceleration
+        p.vy -= 0.025;
+        p.vx *= 0.98;
         p.opacity -= p.decay;
         p.rotation += p.rotSpeed;
         if (p.opacity <= 0.01) { particles.splice(i, 1); continue; }
@@ -117,13 +136,21 @@ const ParticleTrail: React.FC = () => {
     };
 
     animate();
-    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('resize', resize);
+
+    if (isTouchDevice) {
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+      window.addEventListener('touchstart', onTouchStart, { passive: true });
+    } else {
+      window.addEventListener('mousemove', onMouseMove);
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchstart', onTouchStart);
     };
   }, []);
 
