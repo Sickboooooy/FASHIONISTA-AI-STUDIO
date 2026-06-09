@@ -117,21 +117,28 @@ export const analyzeGarmentAndStyle = async (base64Image: string, mimeType: stri
   }
 };
 
+const SIZE_QUALITY_HINT: Record<string, string> = {
+  '1K': 'high resolution',
+  '2K': 'ultra high resolution',
+  '4K': '4K ultra-detailed',
+};
+
 export const generateOutfitVisualization = async (
-  prompt: string, 
+  prompt: string,
   size: '1K' | '2K' | '4K' = '1K'
 ): Promise<string> => {
   try {
     const ai = getAiClient();
+    const qualityHint = SIZE_QUALITY_HINT[size] ?? 'high resolution';
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-2.0-flash-preview-image-generation',
       contents: {
-        parts: [{ text: prompt }]
+        parts: [{ text: `${prompt} ${qualityHint} photography.` }]
       },
       config: {
+        responseModalities: ['IMAGE'],
         imageConfig: {
           aspectRatio: "3:4",
-          imageSize: size
         }
       }
     });
@@ -177,14 +184,14 @@ export const generateCreativeDesign = async (
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-2.0-flash-preview-image-generation',
       contents: {
         parts: parts
       },
       config: {
+        responseModalities: ['IMAGE'],
         imageConfig: {
           aspectRatio: aspectRatio,
-          imageSize: '1K'
         }
       }
     });
@@ -209,7 +216,7 @@ export const editImageWithGemini = async (
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-2.0-flash-preview-image-generation',
       contents: {
         parts: [
           {
@@ -220,6 +227,9 @@ export const editImageWithGemini = async (
           },
           { text: prompt }
         ]
+      },
+      config: {
+        responseModalities: ['IMAGE'],
       }
     });
 

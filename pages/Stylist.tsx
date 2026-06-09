@@ -22,6 +22,7 @@ export const Stylist: React.FC = () => {
   const [designRefImage, setDesignRefImage] = useState<{base64: string, mime: string, url: string} | null>(null);
   const [isDesigning, setIsDesigning] = useState(false);
   const [designResult, setDesignResult] = useState<string | null>(null);
+  const [designError, setDesignError] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'3:4' | '1:1' | '16:9'>('3:4');
   const designInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +31,7 @@ export const Stylist: React.FC = () => {
   const [editPrompt, setEditPrompt] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editResult, setEditResult] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Consultant Handlers
@@ -104,6 +106,7 @@ export const Stylist: React.FC = () => {
 
     setIsDesigning(true);
     setDesignResult(null);
+    setDesignError(null);
 
     try {
       const result = await generateCreativeDesign(
@@ -115,15 +118,12 @@ export const Stylist: React.FC = () => {
       setDesignResult(result);
     } catch (error: any) {
       console.error("Design failed", error);
-      
-      // Retry logic for permission/quota issues
+
       const errorStr = error.toString().toLowerCase();
       if (errorStr.includes("permission") || errorStr.includes("403") || errorStr.includes("not found")) {
         if (aistudio && aistudio.openSelectKey) {
           try {
-            // Force re-selection of key
             await aistudio.openSelectKey();
-            // Retry once
             const result = await generateCreativeDesign(
               fullPrompt,
               designRefImage?.base64,
@@ -133,12 +133,12 @@ export const Stylist: React.FC = () => {
             setDesignResult(result);
             return;
           } catch (retryError) {
-             console.error("Retry failed", retryError);
-             alert("Access denied. Please ensure you select a valid paid project API key.");
+            console.error("Retry failed", retryError);
+            setDesignError("Access denied. Please select a valid paid project API key.");
           }
         }
       } else {
-        alert("Design generation failed. Please try again.");
+        setDesignError("Design generation failed. Please try again.");
       }
     } finally {
       setIsDesigning(false);
@@ -168,13 +168,14 @@ export const Stylist: React.FC = () => {
 
     setIsEditing(true);
     setEditResult(null);
+    setEditError(null);
 
     try {
       const result = await editImageWithGemini(editFile.base64, editPrompt, editFile.mime);
       setEditResult(result);
     } catch (error) {
       console.error("Edit failed", error);
-      alert("Image editing failed. Please try again.");
+      setEditError("Image editing failed. Please try again.");
     } finally {
       setIsEditing(false);
     }
@@ -602,7 +603,7 @@ export const Stylist: React.FC = () => {
                      </div>
                    </div>
                  ) : (
-                   <div className="text-center opacity-40 max-w-md px-4">
+                   <div className="text-center max-w-md px-4 opacity-40">
                      {isDesigning ? (
                        <div className="flex flex-col items-center">
                          <Loader2 className="w-16 h-16 text-amber-500 animate-spin mb-6" />
@@ -610,6 +611,12 @@ export const Stylist: React.FC = () => {
                          <p className="text-sm text-stone-500 uppercase tracking-widest animate-pulse">
                            Applying editorial layout & typography...
                          </p>
+                       </div>
+                     ) : designError ? (
+                       <div className="opacity-100 bg-red-950/30 border border-red-800/50 rounded-lg px-6 py-5 text-center">
+                         <p className="text-red-400 font-serif text-lg mb-1">Generation Failed</p>
+                         <p className="text-stone-500 text-sm">{designError}</p>
+                         <button onClick={() => setDesignError(null)} className="mt-3 text-xs text-stone-600 hover:text-stone-400 uppercase tracking-widest transition-colors">Dismiss</button>
                        </div>
                      ) : (
                        <div className="flex flex-col items-center">
@@ -742,7 +749,7 @@ export const Stylist: React.FC = () => {
                        </div>
                     </div>
                   ) : (
-                    <div className="text-center opacity-40 max-w-md px-4">
+                    <div className="text-center max-w-md px-4 opacity-40">
                       {isEditing ? (
                         <div className="flex flex-col items-center">
                           <Loader2 className="w-16 h-16 text-amber-500 animate-spin mb-6" />
@@ -750,6 +757,12 @@ export const Stylist: React.FC = () => {
                           <p className="text-sm text-stone-500 uppercase tracking-widest animate-pulse">
                             Processing pixels...
                           </p>
+                        </div>
+                      ) : editError ? (
+                        <div className="opacity-100 bg-red-950/30 border border-red-800/50 rounded-lg px-6 py-5 text-center">
+                          <p className="text-red-400 font-serif text-lg mb-1">Edit Failed</p>
+                          <p className="text-stone-500 text-sm">{editError}</p>
+                          <button onClick={() => setEditError(null)} className="mt-3 text-xs text-stone-600 hover:text-stone-400 uppercase tracking-widest transition-colors">Dismiss</button>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center">
@@ -785,6 +798,7 @@ const StarShape = ({ className }: { className?: string }) => (
 const OutfitCard: React.FC<{ suggestion: OutfitSuggestion; index: number }> = ({ suggestion, index }) => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [size, setSize] = useState<'1K' | '2K' | '4K'>('1K');
 
   const handleGenerate = async () => {
@@ -802,11 +816,12 @@ const OutfitCard: React.FC<{ suggestion: OutfitSuggestion; index: number }> = ({
     await ensureKey();
 
     setIsGenerating(true);
+    setGenerateError(null);
     try {
       const itemsDesc = suggestion.items.map(i => `${i.color} ${i.name} (${i.type})`).join(', ');
-      const prompt = `Professional high-fashion photography of a model wearing ${itemsDesc}. 
-      Style: ${suggestion.style}. Occasion: ${suggestion.occasion}. 
-      Description: ${suggestion.description}. 
+      const prompt = `Professional high-fashion photography of a model wearing ${itemsDesc}.
+      Style: ${suggestion.style}. Occasion: ${suggestion.occasion}.
+      Description: ${suggestion.description}.
       Cinematic lighting, vogue magazine style, detailed textures, photorealistic, 8k resolution.`;
 
       const img = await generateOutfitVisualization(prompt, size);
@@ -815,19 +830,18 @@ const OutfitCard: React.FC<{ suggestion: OutfitSuggestion; index: number }> = ({
       console.error(e);
       const errorStr = e.toString().toLowerCase();
       if (errorStr.includes("permission") || errorStr.includes("403")) {
-         const aistudio = (window as any).aistudio;
-         if (aistudio && aistudio.openSelectKey) {
-            try {
-               await aistudio.openSelectKey();
-               // We don't retry automatically in this sub-component to avoid complex state, just alert.
-               alert("Permission granted. Please click 'Generate Visual' again.");
-               return;
-            } catch {
-              // ignore
-            }
-         }
+        const aistudio = (window as any).aistudio;
+        if (aistudio && aistudio.openSelectKey) {
+          try {
+            await aistudio.openSelectKey();
+            setGenerateError("Permission updated. Click 'Generate Visual' again.");
+            return;
+          } catch {
+            // ignore
+          }
+        }
       }
-      alert("Failed to generate visualization. Please try again.");
+      setGenerateError("Failed to generate visualization. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -899,6 +913,11 @@ const OutfitCard: React.FC<{ suggestion: OutfitSuggestion; index: number }> = ({
                     <div className="flex flex-col items-center">
                       <Loader2 className="animate-spin text-amber-500 w-10 h-10 mb-4" />
                       <span className="text-stone-500 text-xs uppercase tracking-widest animate-pulse">Designing Visuals...</span>
+                    </div>
+                  ) : generateError ? (
+                    <div className="bg-red-950/30 border border-red-800/50 rounded-lg px-4 py-4 text-center w-full max-w-[220px]">
+                      <p className="text-red-400 text-sm mb-2">{generateError}</p>
+                      <button onClick={() => setGenerateError(null)} className="text-xs text-stone-600 hover:text-stone-400 uppercase tracking-widest transition-colors">Dismiss</button>
                     </div>
                   ) : (
                     <>

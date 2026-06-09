@@ -20,7 +20,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
         <div className="border-t border-stone-900 pt-8 flex justify-center">
-          <p className="text-stone-700 text-xs uppercase tracking-widest">© 2024 FashionistApp. All rights reserved.</p>
+          <p className="text-stone-700 text-xs uppercase tracking-widest">© {new Date().getFullYear()} FashionistApp. All rights reserved.</p>
         </div>
       </div>
     </footer>
